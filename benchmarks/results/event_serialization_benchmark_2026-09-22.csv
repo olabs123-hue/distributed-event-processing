@@ -1,0 +1,4 @@
+run,iterations,payload_bytes,serialization_seconds,serialization_ops_per_second,round_trip_seconds,round_trip_ops_per_second
+1,1000000,129,0.60,1674943.31,0.77,1292106.45
+2,1000000,129,0.57,1746354.43,0.76,1320478.03
+3,1000000,129,0.61,1630234.08,0.76,1314469.91
