@@ -5,6 +5,7 @@
 #include <chrono>
 #include <cstdlib>
 #include <iostream>
+#include <memory>
 #include <string>
 #include <thread>
 
@@ -16,8 +17,8 @@ int main()
     const std::string workerId = std::getenv("WORKER_ID") ? std::getenv("WORKER_ID") : "worker-local";
     const std::string db = std::getenv("DATABASE_URL") ? std::getenv("DATABASE_URL") : "postgresql://event_user:event_password@localhost:5432/events";
 
-    Database database(db);
-    database.initialize();
+    std::unique_ptr<Database> database(new Database(db));
+    database->initialize();
     KafkaConsumerClient consumer(brokers, group, workerId);
     if (!consumer.subscribe(topic)) return 1;
 
@@ -30,25 +31,39 @@ int main()
         long long offset = -1;
         if (!consumer.consume(key, payload, offset, 1000)) continue;
 
-        try
+        // Retry the *same consumed record* on DB failure instead of consuming
+        // the next offset and accidentally committing past a missing event.
+        bool persisted = false;
+        while (!persisted)
         {
-            Event event = Event::fromJson(payload);
-            bool inserted = database.insertIfNew(event, offset, workerId);
-            if (inserted)
-                std::cout << "[" << workerId << "] processed event " << event.id << std::endl;
-            else
-                std::cout << "[" << workerId << "] duplicate ignored: " << event.id << std::endl;
-
-            // Commit only after the database transaction succeeds.
-            if (!consumer.commit())
+            try
             {
-                std::cerr << "Commit failed; event will be redelivered." << std::endl;
+                if (!database)
+                {
+                    database.reset(new Database(db));
+                    database->initialize();
+                }
+                Event event = Event::fromJson(payload);
+                const bool inserted = database->insertIfNew(event, offset, workerId);
+                if (inserted)
+                    std::cout << "[" << workerId << "] processed event " << event.id << std::endl;
+                else
+                    std::cout << "[" << workerId << "] duplicate ignored: " << event.id << std::endl;
+                persisted = true;
+            }
+            catch (const std::exception& ex)
+            {
+                database.reset(); // Reconnect after Postgres becomes available.
+                std::cerr << "[" << workerId << "] persistence failure: " << ex.what()
+                          << "; retrying same event" << std::endl;
+                std::this_thread::sleep_for(std::chrono::milliseconds(500));
             }
         }
-        catch (const std::exception& ex)
-        {
-            std::cerr << "Processing failure: " << ex.what() << std::endl;
-            std::this_thread::sleep_for(std::chrono::milliseconds(250));
-        }
+
+        // Commit only after successful database insertion or idempotent conflict.
+        // If commit fails, the message may replay (safe via event primary key).
+        if (!consumer.commit())
+            std::cerr << "[" << workerId << "] Kafka commit failed; replay possible" << std::endl;
+
     }
 }
