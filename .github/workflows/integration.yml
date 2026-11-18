@@ -1,0 +1,42 @@
+name: Docker Kafka-PostgreSQL integration
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'docker/**'
+      - 'docker-compose.yml'
+      - 'tests/integration_docker.py'
+      - '.github/workflows/integration.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  synthetic-recovery:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run disposable 10k-event Kafka / PostgreSQL integration
+        run: python3 tests/integration_docker.py
+      - name: Upload measured reconciliation evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: distributed-event-integration-results
+          path: benchmarks/results/docker_integration_latest.json
+          if-no-files-found: warn
+          retention-days: 30
+      - name: Publish test result
+        if: success()
+        run: |
+          python3 - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json
+          d=json.load(open('benchmarks/results/docker_integration_latest.json'))
+          print(f"Unique persisted synthetic events: {d['unique_event_ids']} / {d['planned_unique_event_ids']}")
+          print(f"Replay count: {d['planned_replayed_event_ids']}; duplicate database rows: {d['duplicate_rows']}")
+          print(f"Worker killed/restarted: {d['worker_kill_and_restart']}; PostgreSQL stopped/restarted: {d['postgres_outage_and_restart']}")
+          print("This is a disposable Docker test, not a production SLA or maximum throughput benchmark.")
+          PY
