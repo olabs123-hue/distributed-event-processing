@@ -258,6 +258,29 @@ Benchmarking will be based on actual runs rather than estimated numbers. Importa
 
 Scaling experiments should compare 1, 2, and 3+ workers against the same workload and record the results in `benchmarks/results/`.
 
+
+## Verified 10,000-event Docker integration and recovery (18 November 2026)
+
+[GitHub Actions successful integration run](https://github.com/olabs123-hue/distributed-event-processing/actions/runs/44302567380) · [Raw JSON result artifact](https://github.com/olabs123-hue/distributed-event-processing/actions/runs/44302567380/artifacts/14425654070) · [Reproducible test methodology](docs/INTEGRATION_TEST.md)
+
+A disposable Docker test used a **three-partition Kafka-compatible Redpanda topic**, **two C++ consumer-group workers**, and PostgreSQL. It published **12,500 synthetic market-data messages** comprising **10,000 distinct event IDs** and **2,500 deliberately replayed IDs**. The test killed and restarted one worker, forced a second worker to take over processing, stopped and restarted PostgreSQL, and observed a worker database failure during the outage.
+
+Verified final SQL results:
+
+- **10,000 unique persisted rows** covering the complete ID range **1–10,000**
+- **0 missing IDs** and **0 duplicate database rows** after the 2,500-ID replay
+- **2 workers with persisted rows**, confirming actual participation by both consumer-group instances
+- Database error observed in worker logs; final reconciliation succeeded after PostgreSQL restarted
+- A measured **204.28-second integration workflow phase** (includes Docker image startup, worker handover, outages, restarts and waiting for catch-up). **This is not end-to-end throughput.**
+
+This is a synthetic Docker integration experiment on a shared GitHub-hosted runner, **not** live exchange ingestion, a production resilience guarantee, or 12,500 unique events. This system uses at-least-once Kafka processing plus idempotent PostgreSQL writes, not exactly-once Kafka delivery.
+
+### CV-safe summary
+
+> Tested two C++ Kafka consumers and PostgreSQL against 12,500 synthetic messages (10,000 unique IDs plus 2,500 replays); after worker and database disruptions, verified 10,000 unique persisted rows, zero missing IDs, zero duplicate rows, and writes from both workers.
+
+Only the separate **1.68 million/sec** metric below refers to standalone C++ serialization; do not report it as Kafka-to-PostgreSQL throughput.
+
 ## Author
 
 **Olamide Olabosoye**  
