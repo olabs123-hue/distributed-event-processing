@@ -12,7 +12,7 @@ class ErrorCb : public RdKafka::EventCb
 public:
     void event_cb(RdKafka::Event& event) override
     {
-        if (event.severity() == RdKafka::Event::EVENT_ERROR)
+        if (event.type() == RdKafka::Event::EVENT_ERROR)
         {
             std::cerr << "[Kafka] " << event.str() << std::endl;
         }
@@ -51,7 +51,7 @@ bool KafkaProducerClient::send(const std::string& topic,
         RdKafka::Topic::PARTITION_UA,
         RdKafka::Producer::RK_MSG_COPY,
         const_cast<char*>(payload.data()), payload.size(),
-        &key, nullptr);
+        key.data(), key.size(), 0, nullptr);
 
     if (result != RdKafka::ERR_NO_ERROR)
     {
