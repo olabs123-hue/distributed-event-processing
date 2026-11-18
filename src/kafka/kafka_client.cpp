@@ -3,7 +3,7 @@
 #include <iostream>
 #include <stdexcept>
 
-#include <rdkafkacpp.h>
+#include <librdkafka/rdkafkacpp.h>
 
 namespace
 {
