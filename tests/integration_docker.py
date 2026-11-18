@@ -83,9 +83,32 @@ def main():
         result["unique_rows_after_duplicate_replay"]=after_replay
         if after_replay != 2500:
             raise RuntimeError(f"Expected 2,500 rows after replay; got {after_replay}")
+        # Ensure both configured consumers actually persist events, not merely start.
+        worker_rows=query("SELECT worker_id,COUNT(*) FROM processed_events GROUP BY worker_id ORDER BY worker_id;")
+        active_workers=[line.split(",")[0] for line in worker_rows.splitlines() if line.strip()]
+        if len(active_workers) == 1:
+            # Halt the worker that took all early partitions, forcing the other member
+            # of the consumer group to own the next batch on rebalance.
+            active=active_workers[0]
+            if active not in ("worker-1","worker-2"):
+                raise RuntimeError("Unexpected worker identity stored in DB")
+            docker("stop",active,timeout=40,quiet=True)
+            produce(500,2501)
+            wait_until(3000)
+            docker("start",active,timeout=50,quiet=True)
+        else:
+            produce(500,2501)
+            wait_until(3000)
+        result["worker_participation_tested"]=True
+
         docker("stop","postgres",timeout=40,quiet=True)
-        produce(7500,2501) # Kafka remains available while Postgres is offline.
-        time.sleep(3) # Allow consumers to observe a failed database attempt.
+        produce(7000,3001) # Kafka remains available while Postgres is offline.
+        time.sleep(3) # Allow consumers to observe failed persistence attempts.
+        # Capture the failure signal while Postgres is offline, before recovery logs
+        # can overwhelm the tail.
+        observed_logs=docker("logs","--tail","100","worker-1","worker-2",
+                             timeout=20,quiet=True)
+        result["database_error_observed_in_logs"]="persistence failure" in observed_logs
         docker("start","postgres",timeout=50,quiet=True)
         result["postgres_outage_and_restart"]=True
         wait_until(10000)
@@ -103,6 +126,10 @@ def main():
                        "integration_wall_seconds":round(time.monotonic()-started,2)})
         if (count_rows,unique,minimum,maximum)!=(10000,10000,1,10000):
             raise RuntimeError("PostgreSQL final-state reconciliation failed")
+        if workers < 2:
+            raise RuntimeError("Only one worker persisted rows despite forced takeover test")
+        if not result["database_error_observed_in_logs"]:
+            raise RuntimeError("No observed database failure in worker logs during induced outage")
         result["passed"]=True
     except Exception as e:
         result["passed"]=False
