@@ -1,4 +1,6 @@
 # Distributed Real-Time Event Processing Platform
+> **Portfolio highlight — distributed systems:** Explore Kafka partitioned consumption, C++ workers, idempotent PostgreSQL writes, API access, and failure-recovery testing. This project showcases backend and systems depth rather than a React user interface; consult the benchmark section before quoting any throughput.
+
 
 A distributed event-processing platform built around C++, Apache Kafka, PostgreSQL, Docker, Python, and AWS infrastructure. The system is designed to demonstrate concurrency, message-driven architecture, fault tolerance, idempotent processing, observability, benchmarking, and horizontal scaling.
 
