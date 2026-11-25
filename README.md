@@ -261,6 +261,24 @@ Benchmarking will be based on actual runs rather than estimated numbers. Importa
 Scaling experiments should compare 1, 2, and 3+ workers against the same workload and record the results in `benchmarks/results/`.
 
 
+## Verified multi-worker Kafka → PostgreSQL scaling benchmark (25 November 2026)
+
+**[Successful three-scenario GitHub Actions benchmark](https://github.com/olabs123-hue/distributed-event-processing/actions/runs/45601157117)** · [Benchmark script](benchmarks/kafka_postgres_e2e.py) · [Reproduction instructions](benchmarks/END_TO_END.md)
+
+The benchmark now **explicitly creates and verifies the three-partition topic before starting consumers**. Each scenario uses its own disposable Redpanda + PostgreSQL Compose stack, publishes 5,000 synthetic unique IDs, and verifies PostgreSQL persisted the entire ID range. Crucially, the SQL postconditions also verify that the expected number of different workers actually inserted rows.
+
+| Configured consumers | Distinct DB-writing workers | Unique persisted events | Batch throughput (events/s) | p50 event age | p99 event age |
+|---:|---:|---:|---:|---:|---:|
+| 1 | 1 | 5,000 | **1,025.30** | 1,694 ms | 2,976 ms |
+| 2 | 2 | 5,000 | **1,151.79** | 1,126 ms | 2,256.01 ms |
+| 4 | 3 | 5,000 | **1,574.81** | 896 ms | 1,438 ms |
+
+In this single run, the 4-configured-consumer / 3-active-writer configuration delivered **~1.54× the measured batch throughput** of the single-consumer baseline and ~52% lower p99 event age. **Only three workers can actively own partitions on this three-partition topic.** Do not report the outcome as four-way active scaling.
+
+**Measurement boundaries:** synthetic containers on a shared GitHub Actions runner, a single measured batch per worker count, producer command overhead included in throughput timing, event age calculated from producer `created_at_ms` to database `processed_at_ms`, and no production SLA or external exchange traffic. The p50/p99 values are database-insert event-age statistics, **not** client request acknowledgment latencies. Repeat trials and confidence intervals are still needed to establish stable scaling behavior.
+
+Previous runs below are retained transparently: they suffered incomplete topic initialization and did not demonstrate multiple active writers. The new run above supersedes them for the **scaling** claim.
+
 ## End-to-end Kafka to PostgreSQL measurements (25 November 2026)
 
 [Successful 1,000-event benchmark run](https://github.com/olabs123-hue/distributed-event-processing/actions/runs/45597410081) · [Benchmark methodology](benchmarks/END_TO_END.md)
