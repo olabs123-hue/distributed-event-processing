@@ -148,11 +148,11 @@ The benchmark reports measured values for:
 - p95 latency
 - p99 latency
 
-No benchmark number is claimed in this README until it has actually been measured.
+The benchmark numbers below are measurements from specific recorded CI runs. Standalone serialization results must not be confused with Kafka-to-PostgreSQL batch throughput, and single-run synthetic measurements do not establish production capacity.
 
 ## Measured benchmark result
 
-The environment used for this benchmark did not have Docker, Kafka, or PostgreSQL available, so no Kafka-to-PostgreSQL end-to-end throughput number is claimed here. Instead, the repository includes a reproducible C++ event serialization benchmark that was executed locally.
+The following historical microbenchmark measures **C++ event serialization only**. Separate, later GitHub Actions runs measured Kafka-to-PostgreSQL batch ingestion and multiworker participation; see the verified performance snapshot and scaling section.
 
 Test configuration:
 
