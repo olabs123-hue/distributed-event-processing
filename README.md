@@ -285,6 +285,27 @@ The [successful measured 5,000-event batch run](https://github.com/olabs123-hue/
 
 This run **did not demonstrate scaling**: only a single unique worker ID appeared in persisted data in every case, despite more workers being configured. The recorded `success` flag verified persisted row totals, **not multi-worker participation**. A subsequent benchmark version includes a hard assertion that all expected workers (capped by Kafka partition count) actually persist rows. Until that passes, do not claim throughput gains from scaling.
 
+### Post-fix scaling verification status (25 November 2026)
+
+The benchmark now runs **1, 2, 3 and 4 configured C++ consumers** against
+isolated 5,000-event workloads. It verifies the Kafka topic has three partitions,
+requires the expected number of distinct database-writing workers, and produces
+a JSON **three-worker scaling verdict** comparing one versus three configured
+consumers on the same CI runner. The GitHub Actions workflow also reports
+whether the three-consumer batch throughput exceeds the historical
+**622.17 events/s** single-worker figure.
+
+**No successful post-fix benchmark result has been verified for publication
+here yet.** The 5,000-event table above is a historical pre-fix measurement,
+not evidence of horizontal throughput scaling. A passing three-worker
+participation check is necessary but insufficient: throughput must also
+increase meaningfully over the contemporary one-worker run. Because the
+post-fix benchmark suppresses per-event logging, historical versus new
+throughput comparisons are not controlled like-for-like experiments.
+
+[Run or inspect the benchmark workflow](.github/workflows/e2e-benchmark.yml)
+· [Benchmark acceptance rules](benchmarks/END_TO_END.md)
+
 ## Verified 10,000-event Docker integration and recovery (18 November 2026)
 
 [GitHub Actions successful integration run](https://github.com/olabs123-hue/distributed-event-processing/actions/runs/44302567380) · [Raw JSON result artifact](https://github.com/olabs123-hue/distributed-event-processing/actions/runs/44302567380/artifacts/14425654070) · [Reproducible test methodology](docs/INTEGRATION_TEST.md)
