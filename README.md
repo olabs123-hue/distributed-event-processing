@@ -4,6 +4,18 @@
 
 A distributed event-processing platform built around C++, Apache Kafka, PostgreSQL, Docker, Python, and AWS infrastructure. The system is designed to demonstrate concurrency, message-driven architecture, fault tolerance, idempotent processing, observability, benchmarking, and horizontal scaling.
 
+## Verified performance snapshot
+
+| Metric | Measured result |
+| --- | --- |
+| Kafka → PostgreSQL synthetic batch | 5,000 unique events per scenario |
+| 1 active writer | 1,025.30 persisted events/s |
+| 3 active writers (4 consumers configured; 3 partitions) | **1,574.81 persisted events/s** (**+53.6%** in the same run) |
+| 3-active-writer event age at DB insert | p50 **896 ms**, p99 **1,438 ms** |
+| Worker/database disruption recovery | 10,000 unique IDs persisted, 0 missing/duplicate rows, with 2,500 replays |
+
+Evidence: [successful scaling CI run](https://github.com/olabs123-hue/distributed-event-processing/actions/runs/45601157117) · [recovery CI run](https://github.com/olabs123-hue/distributed-event-processing/actions/runs/44302567380). These are **single-run synthetic container tests**, not production throughput, client acknowledgment latency, or repeatability guarantees. The configured fourth consumer could not actively own one of only three topic partitions.
+
 ## What the system does
 
 ```text
