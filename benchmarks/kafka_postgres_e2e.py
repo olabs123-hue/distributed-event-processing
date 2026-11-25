@@ -62,16 +62,26 @@ def scenario(workers: int, count: int, timeout: int, *, preserve: bool = False) 
         print(f"Starting isolated {workers}-consumer stack ({project})", flush=True)
         # Start broker and database first; do not start consumers until the
         # topic exists and all three partitions have propagated.
-        docker(project, "up", "-d", "kafka", "postgres", "kafka-init", timeout=900)
-        deadline = time.monotonic() + 100
+        docker(project, "up", "-d", "kafka", "postgres", timeout=900)
+        deadline = time.monotonic() + 90
         last_metadata_error = ""
         while True:
             try:
+                # Explicitly create in the benchmark's isolated broker before
+                # consumer startup; auto-creation can otherwise yield 1 partition.
+                try:
+                    create_result = docker(project, "exec", "-T", "kafka",
+                        "rpk", "topic", "create", "market-events",
+                        "--partitions", "3", "--replicas", "1",
+                        "--brokers", "kafka:9092", timeout=20)
+                    print("TOPIC_CREATE " + create_result[-600:], flush=True)
+                except RuntimeError as exc:
+                    # The following list check is authoritative; the topic may
+                    # already exist after a previous creation attempt.
+                    last_metadata_error = str(exc)[-650:]
                 topic = docker(project, "exec", "-T", "kafka", "rpk",
                                "topic", "list", "--brokers", "kafka:9092",
-                               timeout=25)
-                # rpk topic list reports NAME PARTITIONS REPLICAS and avoids
-                # querying topic CONFIGS, which can fail on this Redpanda image.
+                               timeout=20)
                 partitions = None
                 for line in topic.splitlines():
                     fields = line.split()
@@ -80,12 +90,12 @@ def scenario(workers: int, count: int, timeout: int, *, preserve: bool = False) 
                 if partitions == 3:
                     print("TOPIC_METADATA " + topic[-2000:], flush=True)
                     break
-                last_metadata_error = f"Expected 3 Kafka partitions; rpk reported {partitions}"
+                last_metadata_error = f"Expected 3 partitions; list was: {topic[-550:]}"
             except (RuntimeError, subprocess.TimeoutExpired) as exc:
-                last_metadata_error = str(exc)[-750:]
+                last_metadata_error = str(exc)[-650:]
             if time.monotonic() >= deadline:
                 raise RuntimeError("Kafka topic was not ready: " + last_metadata_error)
-            time.sleep(2)
+            time.sleep(3)
         docker(project, "up", "--build", "-d", "--scale",
                f"worker-bench={workers}", "worker-bench", timeout=900)
         # Ensure at least one worker has created the database table.
