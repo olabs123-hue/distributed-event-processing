@@ -31,3 +31,22 @@ On GitHub Actions the dedicated [benchmark workflow](../.github/workflows/e2e-be
 
 ## Important limitations
 This is a **synthetic local Docker benchmark** using Redpanda's Kafka-compatible API, not a paid cloud Kafka cluster, production exchange feed, or published service-level objective. Client and server containers run on one Docker host. Producer timestamps use millisecond resolution; the p99 is a database record-age percentile over the batch, not a client round-trip percentile. A four-worker test with three Kafka partitions can leave at least one consumer without a partition.
+
+## Benchmark worker logging and interpretation
+
+The isolated benchmark Compose override sets `BENCHMARK_QUIET=1` for C++ workers.
+This suppresses per-event stdout messages during measurement, avoiding artificial
+console-output overhead. Normal Compose workers retain their existing logging.
+Compare results only across runs using the same benchmark version, runner type,
+event count, and configuration; do not compare new quiet-mode rates directly
+with earlier verbose-mode rates as though the environment were unchanged.
+
+A scenario is valid only when it persists the full unique-event range **and**
+`distinct_worker_ids_with_rows >= min(workers_requested, 3)`. A passing
+four-consumer scenario demonstrates three active writers on a three-partition
+topic, but **does not by itself prove faster throughput**. To claim scaling,
+compare end-to-end batch-drain throughput and event-age percentiles for 1, 2,
+and 4 configured workers and retain the workflow's JSON/CSV artifact.
+If GitHub Actions fails, inspect the worker-row counts and consumer logs before
+making any performance claim. No new scaling or latency figures should appear
+in the README or CV until a successful measured run is reviewed.
