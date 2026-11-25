@@ -64,7 +64,9 @@ def scenario(workers: int, count: int, timeout: int, *, preserve: bool = False) 
                f"worker-bench={workers}", "worker-bench", timeout=900)
         # Make sure table creation is complete before injecting the first events.
         wait_for_rows(project, 0, 90)
-        # Allow consumer-group members to subscribe and reach a stable assignment.\n        # Otherwise a short batch may finish before the second consumer joins.\n        time.sleep(8)\n        # This measures the overall publish+drain interval, not producer-only rate.
+        # Allow consumer-group members to subscribe and reach a stable assignment.
+        # Otherwise a short batch may finish before the second consumer joins.
+        time.sleep(12)\n        # This measures the overall publish+drain interval, not producer-only rate.
         begin = time.monotonic()
         docker(project, "run", "--rm", "-T", "-e", f"EVENT_COUNT={count}",
                "-e", "START_ID=1", "producer", timeout=max(180, timeout))
@@ -92,6 +94,11 @@ def scenario(workers: int, count: int, timeout: int, *, preserve: bool = False) 
         rows, unique_ids, min_id, max_id, active_consumers, negative_latencies = map(int, parts[:6])
         if (rows, unique_ids, min_id, max_id) != (count, count, 1, count):
             raise RuntimeError(f"Nonmatching DB totals: {parts[:4]}")
+        if active_consumers < min(workers, 3):
+            # Include useful diagnostics rather than silently claiming scaling.
+            print("WORKER_ROWS " + sql(project, "SELECT worker_id,COUNT(*) FROM processed_events GROUP BY worker_id ORDER BY worker_id;"), flush=True)
+            print("CONSUMER_LOGS " + docker(project, "logs", "--tail", "40", "worker-bench", timeout=25)[-2500:], flush=True)
+            raise RuntimeError(f"Only {active_consumers} distinct worker IDs persisted records; expected at least {min(workers, 3)}")
         if negative_latencies:
             raise RuntimeError("Detected negative timestamp differences (clock issue)")
         elapsed = end - begin
