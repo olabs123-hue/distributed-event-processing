@@ -180,7 +180,7 @@ def scenario(workers: int, count: int, timeout: int, *, preserve: bool = False) 
 def main() -> None:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--events", type=int, default=3000)
-    p.add_argument("--workers", nargs="+", type=int, default=[1, 2, 4])
+    p.add_argument("--workers", nargs="+", type=int, default=[1, 2, 3, 4])
     p.add_argument("--timeout", type=int, default=300)
     p.add_argument("--output", type=Path, default=OUTPUT)
     p.add_argument("--preserve-stacks", action="store_true",
@@ -188,8 +188,8 @@ def main() -> None:
     args = p.parse_args()
     if not 100 <= args.events <= 100000:
         p.error("--events must be in [100,100000]")
-    if not args.workers or any(w not in [1, 2, 4] for w in args.workers):
-        p.error("--workers must be a nonempty subset of 1 2 4")
+    if not args.workers or any(w not in [1, 2, 3, 4] for w in args.workers):
+        p.error("--workers must be a nonempty subset of 1 2 3 4")
     if len(set(args.workers)) != len(args.workers):
         p.error("worker counts must be distinct")
     if not 30 <= args.timeout <= 1800:
@@ -213,6 +213,26 @@ def main() -> None:
             "all_succeeded": len(results) == len(args.workers) and all(r["success"] for r in results),
             "results": results,
         }
+        by_workers = {r["workers_requested"]: r for r in results}
+        baseline = by_workers.get(1, {}).get("end_to_end_persisted_events_per_second")
+        three = by_workers.get(3, {}).get("end_to_end_persisted_events_per_second")
+        if baseline is not None and three is not None and baseline > 0:
+            improvement_pct = round(100.0 * (three / baseline - 1.0), 2)
+            payload["three_worker_scaling_verdict"] = {
+                "one_worker_events_per_second": baseline,
+                "three_worker_events_per_second": three,
+                "three_active_writers_confirmed": by_workers[3]["distinct_worker_ids_with_rows"] >= 3,
+                "faster_than_same_run_one_worker": three > baseline,
+                "faster_than_previous_622_17_baseline": three > 622.17,
+                "improvement_over_same_run_baseline_percent": improvement_pct,
+                "at_least_10_percent_faster_than_same_run_baseline": improvement_pct >= 10,
+                "note": "Prior 622.17 measurement used different logging; same-run comparisons are preferable."
+            }
+            print("SCALING_VERDICT " + json.dumps(payload["three_worker_scaling_verdict"], sort_keys=True), flush=True)
+        else:
+            payload["three_worker_scaling_verdict"] = {
+                "verified": False, "note": "Both 1- and 3-worker runs must complete successfully."
+            }
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
         csv_path = args.output.with_suffix(".csv")
