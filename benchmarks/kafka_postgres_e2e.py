@@ -68,17 +68,19 @@ def scenario(workers: int, count: int, timeout: int, *, preserve: bool = False) 
         while True:
             try:
                 topic = docker(project, "exec", "-T", "kafka", "rpk",
-                               "topic", "describe", "market-events",
-                               "--brokers", "kafka:9092", timeout=25)
-                # The rpk partition table begins with a numeric PARTITION column.
-                observed_partitions = {
-                    int(fields[0]) for line in topic.splitlines()
-                    if (fields := line.split()) and fields[0].isdigit()
-                }
-                if observed_partitions == {0, 1, 2}:
+                               "topic", "list", "--brokers", "kafka:9092",
+                               timeout=25)
+                # rpk topic list reports NAME PARTITIONS REPLICAS and avoids
+                # querying topic CONFIGS, which can fail on this Redpanda image.
+                partitions = None
+                for line in topic.splitlines():
+                    fields = line.split()
+                    if len(fields) >= 3 and fields[0] == "market-events":
+                        partitions = int(fields[1])
+                if partitions == 3:
                     print("TOPIC_METADATA " + topic[-2000:], flush=True)
                     break
-                last_metadata_error = f"Only partitions {sorted(observed_partitions)} available"
+                last_metadata_error = f"Expected 3 Kafka partitions; rpk reported {partitions}"
             except (RuntimeError, subprocess.TimeoutExpired) as exc:
                 last_metadata_error = str(exc)[-750:]
             if time.monotonic() >= deadline:
