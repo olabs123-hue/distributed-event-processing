@@ -66,7 +66,8 @@ def scenario(workers: int, count: int, timeout: int, *, preserve: bool = False) 
         wait_for_rows(project, 0, 90)
         # Allow consumer-group members to subscribe and reach a stable assignment.
         # Otherwise a short batch may finish before the second consumer joins.
-        time.sleep(12)\n        # This measures the overall publish+drain interval, not producer-only rate.
+        time.sleep(12)
+        # This measures the overall publish+drain interval, not producer-only rate.
         begin = time.monotonic()
         docker(project, "run", "--rm", "-T", "-e", f"EVENT_COUNT={count}",
                "-e", "START_ID=1", "producer", timeout=max(180, timeout))
