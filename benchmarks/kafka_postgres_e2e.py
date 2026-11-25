@@ -70,7 +70,7 @@ def scenario(workers: int, count: int, timeout: int, *, preserve: bool = False) 
         # This measures the overall publish+drain interval, not producer-only rate.
         begin = time.monotonic()
         docker(project, "run", "--rm", "-T", "-e", f"EVENT_COUNT={count}",
-               "-e", "START_ID=1", "producer", timeout=max(180, timeout))
+               "-e", "START_ID=1", "-e", "BENCHMARK_PARTITIONS=3", "producer", timeout=max(180, timeout))
         producer_done = time.monotonic()
         wait_for_rows(project, count, timeout)
         end = time.monotonic()
