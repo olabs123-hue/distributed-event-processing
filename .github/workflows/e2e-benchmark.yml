@@ -1,0 +1,44 @@
+name: Kafka PostgreSQL end-to-end benchmark
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'benchmarks/kafka_postgres_e2e.py'
+      - 'benchmarks/docker-compose.benchmark.yml'
+      - '.github/workflows/e2e-benchmark.yml'
+permissions:
+  contents: read
+jobs:
+  measured-1-2-4-worker-comparison:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run isolated Docker worker-scaling benchmark
+        env:
+          ALLOW_KAFKA_BENCHMARK: 'yes'
+        run: python3 benchmarks/kafka_postgres_e2e.py --events 1000 --workers 1 2 4 --timeout 300
+      - name: Upload measured evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kafka-postgres-end-to-end-results
+          path: |
+            benchmarks/results/kafka_postgres_e2e_latest.json
+            benchmarks/results/kafka_postgres_e2e_latest.csv
+          if-no-files-found: warn
+          retention-days: 30
+      - name: Summarize actual numbers
+        if: success()
+        run: |
+          python3 - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json
+          d=json.load(open('benchmarks/results/kafka_postgres_e2e_latest.json'))
+          assert d['all_succeeded']
+          print('| Workers | Persisted events/s | p50 event age (ms) | p99 event age (ms) | Active DB writers |')
+          print('|---:|---:|---:|---:|---:|')
+          for r in d['results']:
+              print(f"| {r['workers_requested']} | {r['end_to_end_persisted_events_per_second']} | {r['p50_event_age_at_insert_ms']} | {r['p99_event_age_at_insert_ms']} | {r['distinct_worker_ids_with_rows']} |")
+          print('Synthetic container benchmark; 3 Kafka partitions, 4 consumers may leave one idle.')
+          PY
