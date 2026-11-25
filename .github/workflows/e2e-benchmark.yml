@@ -19,7 +19,7 @@ jobs:
       - name: Run isolated Docker worker-scaling benchmark
         env:
           ALLOW_KAFKA_BENCHMARK: 'yes'
-        run: python3 benchmarks/kafka_postgres_e2e.py --events 1000 --workers 1 2 4 --timeout 300
+        run: python3 benchmarks/kafka_postgres_e2e.py --events 5000 --workers 1 2 4 --timeout 300
       - name: Upload measured evidence
         if: always()
         uses: actions/upload-artifact@v4
