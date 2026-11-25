@@ -64,6 +64,20 @@ def scenario(workers: int, count: int, timeout: int, *, preserve: bool = False) 
                f"worker-bench={workers}", "worker-bench", timeout=900)
         # Make sure table creation is complete before injecting the first events.
         wait_for_rows(project, 0, 90)
+        topic = docker(project, "exec", "-T", "kafka", "rpk", "topic", "describe",
+                       "market-events", "--brokers", "kafka:9092", timeout=25)
+        print("TOPIC_METADATA " + topic[-3500:], flush=True)
+        # rpk describe normally shows a per-partition table with PARTITION column.
+        # Explicit partition routing is unsafe if the broker has a different count.
+        topic_lines = topic.splitlines()
+        observed_partitions = set()
+        for line in topic_lines:
+            fields = line.split()
+            if fields and fields[0].isdigit():
+                observed_partitions.add(int(fields[0]))
+        if observed_partitions != {0, 1, 2}:
+            raise RuntimeError("Expected three available Kafka partitions 0,1,2; "
+                               + f"metadata rows show {sorted(observed_partitions)}")
         # Allow consumer-group members to subscribe and reach a stable assignment.
         # Otherwise a short batch may finish before the second consumer joins.
         time.sleep(12)
@@ -72,7 +86,14 @@ def scenario(workers: int, count: int, timeout: int, *, preserve: bool = False) 
         docker(project, "run", "--rm", "-T", "-e", f"EVENT_COUNT={count}",
                "-e", "START_ID=1", "-e", "BENCHMARK_PARTITIONS=3", "producer", timeout=max(180, timeout))
         producer_done = time.monotonic()
-        wait_for_rows(project, count, timeout)
+        try:
+            wait_for_rows(project, count, timeout)
+        except TimeoutError:
+            print("WORKER_ROW_COUNTS " + sql(project,
+                "SELECT worker_id,COUNT(*) FROM processed_events GROUP BY worker_id ORDER BY worker_id;"), flush=True)
+            print("WORKER_LOGS " + docker(project, "logs", "--tail", "50",
+                "worker-bench", timeout=30)[-5500:], flush=True)
+            raise
         end = time.monotonic()
         raw = sql(project, """
             SELECT COUNT(*),
