@@ -50,3 +50,20 @@ and 4 configured workers and retain the workflow's JSON/CSV artifact.
 If GitHub Actions fails, inspect the worker-row counts and consumer logs before
 making any performance claim. No new scaling or latency figures should appear
 in the README or CV until a successful measured run is reviewed.
+
+## Explicit three-consumer scaling check
+
+The CI benchmark now runs 1, 2, 3, and 4 configured consumers for 5,000
+synthetic events each. A topic with three partitions supports at most three
+simultaneously assigned consumers. Inspect the `three_worker_scaling_verdict`
+field in the generated JSON and CI step summary.
+
+To demonstrate a useful throughput scaling result, verify **three distinct
+database-writing worker IDs** in the three-consumer run **and** a meaningful
+throughput improvement against the one-consumer scenario from the same CI
+run. The summary reports the percentage increase and whether it reaches 10%.
+It separately checks whether throughput is greater than the old 622.17 events/s
+measurement, but that older number used different worker logging settings and
+is not a controlled before/after baseline.
+
+Do not publish a scaling claim until those actual CI measurements are reviewed.
