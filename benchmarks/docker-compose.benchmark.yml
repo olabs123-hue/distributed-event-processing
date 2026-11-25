@@ -8,6 +8,7 @@ services:
       KAFKA_BROKERS: kafka:9092
       KAFKA_TOPIC: market-events
       KAFKA_GROUP: benchmark-workers
+      BENCHMARK_QUIET: "1"
       DATABASE_URL: postgresql://event_user:event_password@postgres:5432/events
     command: ["/bin/sh", "-ec", "export WORKER_ID=\"$(hostname)\"; exec /app/event_worker"]
     depends_on:
