@@ -305,24 +305,13 @@ This run **did not demonstrate scaling**: only a single unique worker ID appeare
 
 ### Post-fix scaling verification status (25 November 2026)
 
-The benchmark now runs **1, 2, 3 and 4 configured C++ consumers** against
-isolated 5,000-event workloads. It verifies the Kafka topic has three partitions,
-requires the expected number of distinct database-writing workers, and produces
-a JSON **three-worker scaling verdict** comparing one versus three configured
-consumers on the same CI runner. The GitHub Actions workflow also reports
-whether the three-consumer batch throughput exceeds the historical
-**622.17 events/s** single-worker figure.
+**Passing post-fix CI evidence is available:** [run 45601157117](https://github.com/olabs123-hue/distributed-event-processing/actions/runs/45601157117) completed all three tested configurations. Its raw CI logs confirm **1, 2, and 3 distinct PostgreSQL-writing workers** with **1, 2, and 4 configured consumers**, respectively, persisting 5,000 unique records per scenario. With 3 Kafka partitions, the fourth configured consumer is not an additional active partition writer.
 
-**No successful post-fix benchmark result has been verified for publication
-here yet.** The 5,000-event table above is a historical pre-fix measurement,
-not evidence of horizontal throughput scaling. A passing three-worker
-participation check is necessary but insufficient: throughput must also
-increase meaningfully over the contemporary one-worker run. Because the
-post-fix benchmark suppresses per-event logging, historical versus new
-throughput comparisons are not controlled like-for-like experiments.
+The same-run single-consumer batch throughput was **1,025.30 events/s**, versus **1,574.81 events/s** for **4 configured / 3 active workers** (approximately **53.6% higher**). That is stronger evidence of scaling than the older 622.17 events/s test, which used different benchmark code and logging behavior. The new three-worker configuration comparison should use the same-run 1,025.30 baseline rather than claiming an apples-to-apples improvement against the older 622.17 figure.
 
-[Run or inspect the benchmark workflow](.github/workflows/e2e-benchmark.yml)
-· [Benchmark acceptance rules](benchmarks/END_TO_END.md)
+The benchmark workflow has subsequently been extended to test **1, 2, 3, and 4 configured consumers** and produce a specific three-worker scaling verdict. **That newer four-scenario workflow has not yet been independently verified as passing here.** Repeat the synthetic experiment to assess stability across runs; a single shared-runner CI result is not production capacity or an SLA.
+
+[Benchmark workflow](.github/workflows/e2e-benchmark.yml) · [Acceptance and measurement methodology](benchmarks/END_TO_END.md)
 
 ## Verified 10,000-event Docker integration and recovery (18 November 2026)
 
