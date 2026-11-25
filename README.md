@@ -273,6 +273,18 @@ Scaling experiments should compare 1, 2, and 3+ workers against the same workloa
 
 Measurements are from disposable Redpanda/Kafka-compatible and PostgreSQL containers in a GitHub Actions runner. **All three scenarios persisted 1,000 unique rows, but only one worker contributed database writes in each case. These are valid measured batch drain timings, not evidence of horizontal scaling.** The later benchmark configuration increases the batch to 5,000 events, waits for consumer-group assignment, and requires multi-worker contribution before reporting the scaling test as successful. The p50/p99 values are timestamp-derived age at database insert, not request/acknowledgment latency.
 
+### Larger 5,000-event batch (25 November 2026)
+
+The [successful measured 5,000-event batch run](https://github.com/olabs123-hue/distributed-event-processing/actions/runs/45597784618) reported:
+
+| Configured consumers | Unique events persisted | Batch drain throughput | p50 event age | p99 event age | Actual database-writing workers |
+|---:|---:|---:|---:|---:|---:|
+| 1 | 5,000 | 622.17 events/s | 3,359.5 ms | 6,088.01 ms | 1 |
+| 2 | 5,000 | 578.70 events/s | 3,718.5 ms | 6,513.01 ms | 1 |
+| 4 | 5,000 | 577.86 events/s | 3,709.5 ms | 6,518.01 ms | 1 |
+
+This run **did not demonstrate scaling**: only a single unique worker ID appeared in persisted data in every case, despite more workers being configured. The recorded `success` flag verified persisted row totals, **not multi-worker participation**. A subsequent benchmark version includes a hard assertion that all expected workers (capped by Kafka partition count) actually persist rows. Until that passes, do not claim throughput gains from scaling.
+
 ## Verified 10,000-event Docker integration and recovery (18 November 2026)
 
 [GitHub Actions successful integration run](https://github.com/olabs123-hue/distributed-event-processing/actions/runs/44302567380) · [Raw JSON result artifact](https://github.com/olabs123-hue/distributed-event-processing/actions/runs/44302567380/artifacts/14425654070) · [Reproducible test methodology](docs/INTEGRATION_TEST.md)
