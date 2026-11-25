@@ -261,6 +261,18 @@ Benchmarking will be based on actual runs rather than estimated numbers. Importa
 Scaling experiments should compare 1, 2, and 3+ workers against the same workload and record the results in `benchmarks/results/`.
 
 
+## End-to-end Kafka to PostgreSQL measurements (25 November 2026)
+
+[Successful 1,000-event benchmark run](https://github.com/olabs123-hue/distributed-event-processing/actions/runs/45597410081) · [Benchmark methodology](benchmarks/END_TO_END.md)
+
+| Configured C++ consumers | Synthetic unique events | Persisted batch throughput | p50 event age | p99 event age | Workers that actually persisted |
+|---:|---:|---:|---:|---:|---:|
+| 1 | 1,000 | 376.88 events/s | 859 ms | 1,117 ms | 1 |
+| 2 | 1,000 | 377.73 events/s | 816.5 ms | 1,064 ms | 1 |
+| 4 | 1,000 | 372.23 events/s | 814 ms | 1,067 ms | 1 |
+
+Measurements are from disposable Redpanda/Kafka-compatible and PostgreSQL containers in a GitHub Actions runner. **All three scenarios persisted 1,000 unique rows, but only one worker contributed database writes in each case. These are valid measured batch drain timings, not evidence of horizontal scaling.** The later benchmark configuration increases the batch to 5,000 events, waits for consumer-group assignment, and requires multi-worker contribution before reporting the scaling test as successful. The p50/p99 values are timestamp-derived age at database insert, not request/acknowledgment latency.
+
 ## Verified 10,000-event Docker integration and recovery (18 November 2026)
 
 [GitHub Actions successful integration run](https://github.com/olabs123-hue/distributed-event-processing/actions/runs/44302567380) · [Raw JSON result artifact](https://github.com/olabs123-hue/distributed-event-processing/actions/runs/44302567380/artifacts/14425654070) · [Reproducible test methodology](docs/INTEGRATION_TEST.md)
