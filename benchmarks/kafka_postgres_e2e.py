@@ -64,7 +64,7 @@ def scenario(workers: int, count: int, timeout: int, *, preserve: bool = False) 
                f"worker-bench={workers}", "worker-bench", timeout=900)
         # Make sure table creation is complete before injecting the first events.
         wait_for_rows(project, 0, 90)
-        # This measures the overall publish+drain interval, not producer-only rate.
+        # Allow consumer-group members to subscribe and reach a stable assignment.\n        # Otherwise a short batch may finish before the second consumer joins.\n        time.sleep(8)\n        # This measures the overall publish+drain interval, not producer-only rate.
         begin = time.monotonic()
         docker(project, "run", "--rm", "-T", "-e", f"EVENT_COUNT={count}",
                "-e", "START_ID=1", "producer", timeout=max(180, timeout))
