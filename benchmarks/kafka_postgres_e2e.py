@@ -60,24 +60,34 @@ def scenario(workers: int, count: int, timeout: int, *, preserve: bool = False) 
               "timestamp_utc": started_at, "success": False}
     try:
         print(f"Starting isolated {workers}-consumer stack ({project})", flush=True)
+        # Start broker and database first; do not start consumers until the
+        # topic exists and all three partitions have propagated.
+        docker(project, "up", "-d", "kafka", "postgres", "kafka-init", timeout=900)
+        deadline = time.monotonic() + 100
+        last_metadata_error = ""
+        while True:
+            try:
+                topic = docker(project, "exec", "-T", "kafka", "rpk",
+                               "topic", "describe", "market-events",
+                               "--brokers", "kafka:9092", timeout=25)
+                # The rpk partition table begins with a numeric PARTITION column.
+                observed_partitions = {
+                    int(fields[0]) for line in topic.splitlines()
+                    if (fields := line.split()) and fields[0].isdigit()
+                }
+                if observed_partitions == {0, 1, 2}:
+                    print("TOPIC_METADATA " + topic[-2000:], flush=True)
+                    break
+                last_metadata_error = f"Only partitions {sorted(observed_partitions)} available"
+            except (RuntimeError, subprocess.TimeoutExpired) as exc:
+                last_metadata_error = str(exc)[-750:]
+            if time.monotonic() >= deadline:
+                raise RuntimeError("Kafka topic was not ready: " + last_metadata_error)
+            time.sleep(2)
         docker(project, "up", "--build", "-d", "--scale",
                f"worker-bench={workers}", "worker-bench", timeout=900)
-        # Make sure table creation is complete before injecting the first events.
+        # Ensure at least one worker has created the database table.
         wait_for_rows(project, 0, 90)
-        topic = docker(project, "exec", "-T", "kafka", "rpk", "topic", "describe",
-                       "market-events", "--brokers", "kafka:9092", timeout=25)
-        print("TOPIC_METADATA " + topic[-3500:], flush=True)
-        # rpk describe normally shows a per-partition table with PARTITION column.
-        # Explicit partition routing is unsafe if the broker has a different count.
-        topic_lines = topic.splitlines()
-        observed_partitions = set()
-        for line in topic_lines:
-            fields = line.split()
-            if fields and fields[0].isdigit():
-                observed_partitions.add(int(fields[0]))
-        if observed_partitions != {0, 1, 2}:
-            raise RuntimeError("Expected three available Kafka partitions 0,1,2; "
-                               + f"metadata rows show {sorted(observed_partitions)}")
         # Allow consumer-group members to subscribe and reach a stable assignment.
         # Otherwise a short batch may finish before the second consumer joins.
         time.sleep(12)
