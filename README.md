@@ -341,7 +341,7 @@ Verified final SQL results:
 
 This is a synthetic Docker integration experiment on a shared GitHub-hosted runner, **not** live exchange ingestion, a production resilience guarantee, or 12,500 unique events. This system uses at-least-once Kafka processing plus idempotent PostgreSQL writes, not exactly-once Kafka delivery.
 
-### CV-safe summary
+### Verified recovery test summary
 
 > Tested two C++ Kafka consumers and PostgreSQL against 12,500 synthetic messages (10,000 unique IDs plus 2,500 replays); after worker and database disruptions, verified 10,000 unique persisted rows, zero missing IDs, zero duplicate rows, and writes from both workers.
 
