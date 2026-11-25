@@ -43,7 +43,7 @@ jobs:
               print(f"| {r['workers_requested']} | {r['end_to_end_persisted_events_per_second']} | {r['p50_event_age_at_insert_ms']} | {r['p99_event_age_at_insert_ms']} | {r['distinct_worker_ids_with_rows']} |")
           print('Synthetic container benchmark; 3 Kafka partitions, 4 consumers may leave one idle.')
           print('## Three-worker scaling verdict')
-          print('\`\`\`json')
+          print('```json')
           print(json.dumps(d.get('three_worker_scaling_verdict', {}), indent=2))
-          print('\`\`\`')
+          print('```')
           PY
