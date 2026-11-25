@@ -11,7 +11,7 @@ on:
 permissions:
   contents: read
 jobs:
-  measured-1-2-4-worker-comparison:
+  measured-1-2-3-4-worker-comparison:
     runs-on: ubuntu-24.04
     timeout-minutes: 40
     steps:
@@ -19,7 +19,7 @@ jobs:
       - name: Run isolated Docker worker-scaling benchmark
         env:
           ALLOW_KAFKA_BENCHMARK: 'yes'
-        run: python3 benchmarks/kafka_postgres_e2e.py --events 5000 --workers 1 2 4 --timeout 300
+        run: python3 benchmarks/kafka_postgres_e2e.py --events 5000 --workers 1 2 3 4 --timeout 300
       - name: Upload measured evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -42,4 +42,8 @@ jobs:
           for r in d['results']:
               print(f"| {r['workers_requested']} | {r['end_to_end_persisted_events_per_second']} | {r['p50_event_age_at_insert_ms']} | {r['p99_event_age_at_insert_ms']} | {r['distinct_worker_ids_with_rows']} |")
           print('Synthetic container benchmark; 3 Kafka partitions, 4 consumers may leave one idle.')
+          print('## Three-worker scaling verdict')
+          print('\`\`\`json')
+          print(json.dumps(d.get('three_worker_scaling_verdict', {}), indent=2))
+          print('\`\`\`')
           PY
