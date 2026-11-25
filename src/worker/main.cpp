@@ -45,10 +45,15 @@ int main()
                 }
                 Event event = Event::fromJson(payload);
                 const bool inserted = database->insertIfNew(event, offset, workerId);
-                if (inserted)
-                    std::cout << "[" << workerId << "] processed event " << event.id << std::endl;
-                else
-                    std::cout << "[" << workerId << "] duplicate ignored: " << event.id << std::endl;
+                // Keep normal operational logs, but avoid benchmark-only per-event
+                // stdout overhead that can dominate small synthetic throughput runs.
+                if (std::getenv("BENCHMARK_QUIET") == nullptr)
+                {
+                    if (inserted)
+                        std::cout << "[" << workerId << "] processed event " << event.id << std::endl;
+                    else
+                        std::cout << "[" << workerId << "] duplicate ignored: " << event.id << std::endl;
+                }
                 persisted = true;
             }
             catch (const std::exception& ex)
