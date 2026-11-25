@@ -1,0 +1,17 @@
+# Isolated benchmark-only worker. Use with the base compose file and a unique project name.
+services:
+  worker-bench:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    environment:
+      KAFKA_BROKERS: kafka:9092
+      KAFKA_TOPIC: market-events
+      KAFKA_GROUP: benchmark-workers
+      DATABASE_URL: postgresql://event_user:event_password@postgres:5432/events
+    command: ["/bin/sh", "-ec", "export WORKER_ID=\"$(hostname)\"; exec /app/event_worker"]
+    depends_on:
+      kafka-init:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
