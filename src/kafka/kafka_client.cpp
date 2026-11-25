@@ -1,6 +1,8 @@
 #include "kafka_client.h"
 
 #include <iostream>
+#include <cstdlib>
+#include <limits>
 #include <stdexcept>
 
 #include <librdkafka/rdkafkacpp.h>
@@ -46,9 +48,24 @@ bool KafkaProducerClient::send(const std::string& topic,
                                const std::string& key,
                                const std::string& payload)
 {
+    // Benchmark-only deterministic partition spread. Normal operation keeps
+    // the broker/client library's configured default partitioner.
+    int32_t partition = RdKafka::Topic::PARTITION_UA;
+    if (const char* raw = std::getenv("BENCHMARK_PARTITIONS")) {
+        try {
+            int requested = std::stoi(raw);
+            unsigned long long numericKey = std::stoull(key);
+            if (requested < 1 || requested > 100 || numericKey < 1)
+                throw std::invalid_argument("invalid partition settings");
+            partition = static_cast<int32_t>(numericKey % static_cast<unsigned>(requested));
+        } catch (const std::exception&) {
+            std::cerr << "[Kafka] invalid benchmark key or partition count" << std::endl;
+            return false;
+        }
+    }
     RdKafka::ErrorCode result = producer_->produce(
         topic,
-        RdKafka::Topic::PARTITION_UA,
+        partition,
         RdKafka::Producer::RK_MSG_COPY,
         const_cast<char*>(payload.data()), payload.size(),
         key.data(), key.size(), 0, nullptr);
